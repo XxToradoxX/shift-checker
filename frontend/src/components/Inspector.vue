@@ -74,7 +74,7 @@ function disabled(empId) {
 
         <div v-for="v in vios.slice(0, 3)" :key="v.id" class="ins-vio" :class="{ warn: v.severity !== 'error' }">
           <b>{{ v.code }} {{ v.title }}</b>{{ v.message }}
-          <span v-if="v.hint" class="hint">建议：{{ v.hint }}</span>
+          <span v-if="v.action || v.hint" class="hint">建议：{{ v.action || v.hint }}</span>
         </div>
 
         <div class="ins-shift-row">

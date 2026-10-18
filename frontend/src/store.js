@@ -30,6 +30,8 @@ export const S = reactive({
   month: 10,
   sel: null,
   highlightEmp: null,
+  focusCells: [],   // 冲突涉及的格子 ["eid:day"]
+  focusStamp: 0,
   focusV: null,
   filter: "all",
   blink: true,
@@ -203,6 +205,7 @@ export async function undo() {
 
 /* ------------------------------ 单元格编辑 ------------------------------ */
 export function select(eid, day) {
+  S.focusCells = [];
   S.sel = { eid, day };
   S.focusV = null;
 }
@@ -349,7 +352,7 @@ export async function resetMonth(mode) {
       mode,
     });
     applyState(payload);
-    toast(mode === "baseline" ? "已恢复初始导入数据" : "已清空本月排班", "ok", 2000);
+    toast("已清空本月排班", "ok", 2000);
   } catch (err) {
     toast(escapeHtml(err.message), "err", 4000);
   }
@@ -497,10 +500,11 @@ export const STATUS_TEXT = {
 /* ------------------------------ 冲突定位 ------------------------------ */
 export function locate(v) {
   S.focusV = v.id;
+  const cells = (v.cells || []).filter((c) => c && c[0]);
   let eid = null;
   let day = v.day || 1;
-  if (v.cells && v.cells.length) {
-    const pick = v.cells.find((c) => c[1] === v.day) || v.cells[0];
+  if (cells.length) {
+    const pick = cells.find((c) => c[1] === v.day) || cells[0];
     eid = pick[0];
     day = pick[1] || day;
   }
@@ -509,6 +513,10 @@ export function locate(v) {
     eid = emp.id;
   }
   S.sel = { eid, day };
+  // 该冲突涉及的所有格子：这些高亮闪烁，其余变暗
+  // R7 → 当天所有关键岗；R5 → 该员工全月值班日；R14 → 连续早班那一段 …
+  S.focusCells = cells.map((c) => `${c[0]}:${c[1]}`);
+  S.focusStamp += 1;
   nextTick(() => {
     const el = document.querySelector(".gcell.cell.is-selected");
     if (el) {
@@ -517,5 +525,4 @@ export function locate(v) {
       setTimeout(() => el.classList.remove("flash"), 2000);
     }
   });
-  if (v.hint) toast(`<b>${escapeHtml(v.code)} ${escapeHtml(v.title)}</b><br>${escapeHtml(v.hint)}`, "warn", 4200);
 }

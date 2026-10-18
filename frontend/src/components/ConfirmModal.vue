@@ -2,10 +2,10 @@
 import { computed } from "vue";
 import { S, doc, resetMonth } from "../store";
 
-const source = computed(() => doc.value.source || "");
-const hint = computed(() =>
-  source.value === "blank" ? "当前月份为空表" : "初始数据来源：" + source.value
-);
+const hint = computed(() => {
+  const src = doc.value.source || "";
+  return src && src !== "blank" ? "当前数据来源：" + src : "当前月份为空表";
+});
 </script>
 
 <template>
@@ -17,10 +17,10 @@ const hint = computed(() =>
         <button class="modal-x" @click="S.modal = null">✕</button>
       </header>
       <div class="modal-body">
-        <p class="confirm-text">请选择重置方式，操作可通过「撤销」恢复。</p>
+        <p class="confirm-text">清空后本月所有早/晚/值班与开门人都会被移除，操作可通过「撤销」恢复。</p>
         <div class="confirm-actions">
           <button class="btn btn-danger" @click="S.modal = null; resetMonth('clear')">清空本月所有班次</button>
-          <button class="btn" @click="S.modal = null; resetMonth('baseline')">恢复初始导入数据</button>
+          <button class="btn" @click="S.modal = null">取消</button>
         </div>
       </div>
       <footer class="modal-foot">

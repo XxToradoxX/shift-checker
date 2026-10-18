@@ -40,6 +40,13 @@ class Ctx:
         self.month = int(doc["month"])
         self.n = len(employees)
         self.rules = {r["code"]: r for r in R.effective_rules(doc)}
+        # 规则在前端停用后，生成器里也必须真的不生效
+        self.enabled = {code: bool(rule.get("enabled", True)) for code, rule in self.rules.items()}
+
+        def on(code: str) -> bool:
+            return self.enabled.get(code, True)
+
+        self.on = on
         self.ids = [e["id"] for e in employees]
         self.index = {eid: i for i, eid in enumerate(self.ids)}
         self.names = [e["name"] for e in employees]
@@ -53,37 +60,53 @@ class Ctx:
 
         self.target = [_int(e.get("dutyTarget")) for e in employees]
         self.cap = [_int(e.get("dutyMax")) for e in employees]
-        self.key = [bool(e.get("keyShift")) for e in employees]
-        self.alternate = [bool(e.get("alternate")) for e in employees]
-        self.cycle = [bool(e.get("shiftCycle")) for e in employees]
+        self.key = [bool(e.get("keyShift")) and on("R7") for e in employees]
+        self.alternate = [bool(e.get("alternate")) and on("R4") for e in employees]
+        self.cycle = [bool(e.get("shiftCycle")) and on("R8") for e in employees]
         self.monthly_rest = [e.get("monthlyRest") for e in employees]
         self.prefer_shift = [e.get("preferShift") for e in employees]
         # 目标上班天数：有月度休息目标 → days-rest；值班岗 → 除值班次日休息外都上班
+        if not on("R5"):
+            self.target = [0] * self.n
+            self.cap = [self.days] * self.n
+
         self.target_work = []
         for e in employees:
             if e.get("alternate"):
                 self.target_work.append(None)
-            elif e.get("monthlyRest"):
+            elif e.get("monthlyRest") and on("R10"):
                 self.target_work.append(max(0, self.days - int(e.get("monthlyRest") or 0)))
-            elif int(e.get("dutyMax") or 0) > 0:
+            elif int(e.get("dutyMax") or 0) > 0 and on("R5"):
                 self.target_work.append(max(0, self.days - int(e.get("dutyMax") or 0)))
             else:
                 self.target_work.append(None)
 
         p1 = self.rules["R1"]["params"]
-        self.lo = max(1, _int(p1.get("min"), 2))
-        self.hi = max(self.lo, _int(p1.get("max"), 3))
-        self.prefer = max(self.lo, min(self.hi, _int(p1.get("prefer"), 2)))
+        if on("R1"):
+            self.lo = max(1, _int(p1.get("min"), 2))
+            self.hi = max(self.lo, _int(p1.get("max"), 3))
+            self.prefer = max(self.lo, min(self.hi, _int(p1.get("prefer"), 2)))
+        else:  # 停用后不再限制每个班次的人数
+            self.lo, self.hi, self.prefer = 1, max(1, self.n), 1
+
         p3 = self.rules["R3"]["params"]
-        self.duty_min = _int(p3.get("min"), 1)
-        self.duty_max_per_day = _int(p3.get("max"), 1)
-        self.need_evening = bool(self.rules["R6"]["params"].get("requireEvening", True))
-        self.next_rest = bool(self.rules["R6"]["params"].get("nextDayRest", True))
+        if on("R3"):
+            self.duty_min = _int(p3.get("min"), 1)
+            self.duty_max_per_day = _int(p3.get("max"), 1)
+        else:
+            self.duty_min, self.duty_max_per_day = 0, max(1, self.n)
+
+        p6 = self.rules["R6"]["params"]
+        self.need_evening = bool(p6.get("requireEvening", True)) and on("R6")
+        self.next_rest = bool(p6.get("nextDayRest", True)) and on("R6")
+
         p10 = self.rules["R10"]["params"]
         self.rest_tol = _int(p10.get("tolerance"), 1)
+
         p12 = self.rules["R12"]["params"]
-        self.opener_require = bool(p12.get("require", True))
-        self.opener_max_repeat = _int(p12.get("maxRepeat"), 0)
+        self.opener_require = bool(p12.get("require", True)) and on("R12")
+        self.opener_max_repeat = _int(p12.get("maxRepeat"), 0) if on("R12") else 999
+        self.opener_bound = on("R12")
 
         r14 = self.rules.get("R14") or {}
         p14 = r14.get("params") or {}
@@ -102,8 +125,11 @@ class Ctx:
         self.min_late = [e.get("minLate") for e in employees]
         self.max_late = [e.get("maxLate") for e in employees]
 
-        self.yi = self._by_name(self.rules["R9"]["params"].get("triggerName", "怡"))
-        self.wu = self._by_name(self.rules["R9"]["params"].get("supportName", "吴"))
+        if on("R9"):
+            self.yi = self._by_name(self.rules["R9"]["params"].get("triggerName", "怡"))
+            self.wu = self._by_name(self.rules["R9"]["params"].get("supportName", "吴"))
+        else:
+            self.yi = self.wu = None
 
         self.forced_duty = {}
         self.forced_rest = [set() for _ in range(self.days + 2)]
@@ -254,7 +280,7 @@ def assign_duty(ctx: Ctx, rng: random.Random, node_budget: int = 80000):
             # 怡值班 → 吴必须在早班，因此吴当天必须能上班
             if rest[d] == ctx.wu or not ctx.work_ok(ctx.wu, d):
                 return False
-        if not ctx.key[i]:
+        if ctx.on("R7") and not ctx.key[i]:
             # 非关键岗值班时，早晚两个班次各需 1 名关键岗，当天至少要 2 名关键岗可上班
             key_ok = sum(1 for k in range(n)
                          if ctx.key[k] and ctx.work_ok(k, d) and k != rest[d])
@@ -330,8 +356,9 @@ def assign_duty(ctx: Ctx, rng: random.Random, node_budget: int = 80000):
                 and d not in ctx.no_duty[i]
                 and not (i == ctx.yi and ctx.wu is not None
                          and (rest[d] == ctx.wu or not ctx.work_ok(ctx.wu, d)))
-                and (ctx.key[i] or sum(1 for k in range(n)
-                                       if ctx.key[k] and ctx.work_ok(k, d) and k != rest[d]) >= 2)
+                and (not ctx.on("R7") or ctx.key[i] or sum(
+                    1 for k in range(n)
+                    if ctx.key[k] and ctx.work_ok(k, d) and k != rest[d]) >= 2)
             ]
         if not pool:
             pool = [i for i in duty_emps if ctx.work_ok(i, d) and i != rest[d]]
@@ -401,7 +428,8 @@ def build_shifts(ctx: Ctx, duty, rest, rng=None):
                         break
             if d_i not in evening[d]:
                 work[d_i] += 1
-            evening[d].add(d_i)
+            if ctx.need_evening:
+                evening[d].add(d_i)
 
         for i in ctx.forced_morning[d]:
             if i != d_i and ctx.work_ok(i, d) and i not in evening[d]:
@@ -571,21 +599,23 @@ def evaluate(ctx: Ctx, st):
             hard += 1
         elif ne > ctx.prefer:
             soft += 1
-        if nm and ne:
+        if nm and ne and ctx.on("R2"):
             for x in (m[d] & e[d]):
                 if not ctx.alternate[x]:
                     hard += 1
         di = duty[d]
         if di < 0:
-            hard += 1
+            if ctx.on("R3"):
+                hard += 1
         else:
             dcount[di] += 1
             if ctx.need_evening and di not in e[d]:
                 hard += 1
-        if not any(ctx.key[i] for i in m[d]):
-            hard += 1
-        if not any(ctx.key[i] for i in e[d]):
-            hard += 1
+        if ctx.key and any(ctx.key):
+            if not any(ctx.key[i] for i in m[d]):
+                hard += 1
+            if not any(ctx.key[i] for i in e[d]):
+                hard += 1
         if ctx.yi is not None and di == ctx.yi and ctx.wu is not None and ctx.wu not in m[d]:
             hard += 1
         target = ctx.headcount.get((d, "early"))
@@ -635,14 +665,15 @@ def evaluate(ctx: Ctx, st):
                     if cur_kind and nxt_kind and cur_kind == nxt_kind:
                         soft += 1
             run = run + 1 if worked else 0
-            if run > 6:
+            if run > 6 and ctx.on("R13"):
                 soft += 1
         target = ctx.target[i]
         cap = max(target, ctx.cap[i])
-        if dcount[i] > cap:
-            hard += dcount[i] - cap
-        elif target and dcount[i] < target:
-            hard += target - dcount[i]
+        if ctx.on("R5"):
+            if dcount[i] > cap:
+                hard += dcount[i] - cap
+            elif target and dcount[i] < target:
+                hard += target - dcount[i]
         # R17：值班间隔过密
         if ctx.duty_gap:
             prev = -99
@@ -658,7 +689,7 @@ def evaluate(ctx: Ctx, st):
         if tw is not None:
             soft += abs(wcount[i] - int(tw)) * 6 * ctx.prio.get("R10", 1.0)
         # R16：早/晚班次数上下限
-        w16 = ctx.prio.get("R16", 1.0)
+        w16 = ctx.prio.get("R16", 1.0) if ctx.on("R16") else 0.0
         lo, hi = ctx.min_early[i], ctx.max_early[i]
         if lo and ecount[i] < lo:
             soft += (lo - ecount[i]) * 40 * w16
@@ -680,18 +711,19 @@ def evaluate(ctx: Ctx, st):
 
     for d in range(1, days):
         di = duty[d]
-        if di >= 0 and ((di in m[d + 1]) or (di in e[d + 1]) or duty[d + 1] == di):
+        if ctx.next_rest and di >= 0 and ((di in m[d + 1]) or (di in e[d + 1]) or duty[d + 1] == di):
             hard += 1
 
     op = st["opener"]
     for d in range(1, days + 1):
-        if op[d] >= 0 and op[d] not in m[d]:
+        if ctx.opener_bound and op[d] >= 0 and op[d] not in m[d]:
             soft += 1
         if ctx.opener_require and m[d] and op[d] < 0:
             soft += 1
         if ctx.forced_opener.get(d) is not None and op[d] != ctx.forced_opener[d]:
             soft += 1
-        if d > 1 and op[d] >= 0 and op[d] == op[d - 1]:
+        if (ctx.opener_bound and ctx.opener_max_repeat == 0
+                and d > 1 and op[d] >= 0 and op[d] == op[d - 1]):
             soft += 1
 
     for d in range(1, days + 1):
@@ -1257,7 +1289,7 @@ def _fill_openers(ctx: Ctx, st):
         counts[op[d]] = counts.get(op[d], 0) + 1
 
     # 二次平衡：把开门次数多的人，换成同一天早班里次数更少的人（不破坏「不连续」）
-    for _ in range(4):
+    for _ in range(4 if ctx.on("R18") else 0):
         cnt = {}
         for d in range(1, days + 1):
             if op[d] >= 0:

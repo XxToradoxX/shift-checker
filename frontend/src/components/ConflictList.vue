@@ -40,6 +40,7 @@ const counts = computed(() => ({ all: check.value.violations.length, error: chec
         <span class="v-main">
           <b>{{ v.day ? `${S.data.doc.month}月${v.day}日` : "全月" }}</b> {{ v.title }}
           <span class="v-msg">{{ v.message }}</span>
+          <span v-if="v.action" class="v-act">建议：{{ v.action }}</span>
         </span>
       </button>
     </div>

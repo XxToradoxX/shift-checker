@@ -1,17 +1,17 @@
-# ===== 运行数据（不提交，首次运行会自动生成）=====
-config/
-data/
+# ===== 运行数据（不提交，首次运行自动生成）=====
+/config/
+/data/
 
-# ===== 打包产物 =====
-dist/
-build/
+# ===== 打包产物（仅项目根目录的 dist/ 与 build/）=====
+/dist/
+/build/
 *.spec
 !ShiftChecker.spec
 
 # ===== 依赖与构建缓存 =====
-frontend/node_modules/
-frontend/.vite/
-vendor/
+/frontend/node_modules/
+/frontend/.vite/
+/vendor/
 
 # ===== Python =====
 __pycache__/

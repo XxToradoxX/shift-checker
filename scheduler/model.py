@@ -58,53 +58,6 @@ def now_iso() -> str:
     return _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# --------------------------------------------------------------------------
-# 默认员工（现有七名员工）
-# --------------------------------------------------------------------------
-DEFAULT_EMPLOYEES = [
-    {
-        "id": "e_chen", "name": "陈", "color": "#b18cff", "role": "值班岗",
-        "dutyTarget": 6, "dutyMax": 6, "keyShift": True, "weeklyRest": None,
-        "alternate": False, "shiftCycle": None, "active": True,
-        "note": "早/晚班关键岗(规则7)",
-    },
-    {
-        "id": "e_fan", "name": "范", "color": "#9d7bff", "role": "值班岗",
-        "dutyTarget": 6, "dutyMax": 6, "keyShift": True, "weeklyRest": None,
-        "alternate": False, "shiftCycle": None, "active": True,
-        "note": "早/晚班关键岗(规则7)",
-    },
-    {
-        "id": "e_lin", "name": "琳", "color": "#8b6cff", "role": "关键岗",
-        "dutyTarget": 0, "dutyMax": 0, "keyShift": True, "monthlyRest": 6,
-        "alternate": False, "shiftCycle": None, "active": True,
-        "note": "全月休息约 6 天，比关键岗少一半(规则10)",
-    },
-    {
-        "id": "e_xu", "name": "徐", "color": "#a06cff", "role": "值班岗",
-        "dutyTarget": 6, "dutyMax": 6, "keyShift": False, "weeklyRest": None,
-        "alternate": False, "shiftCycle": "早晚", "active": True,
-        "note": "一天早一天晚,服从值班安排(规则8)",
-    },
-    {
-        "id": "e_yi", "name": "怡", "color": "#c07cff", "role": "值班岗",
-        "dutyTarget": 6, "dutyMax": 6, "keyShift": False, "weeklyRest": None,
-        "alternate": True, "shiftCycle": None, "active": True,
-        "note": "与周上一休一(规则4),值班日早班排吴(规则9)",
-    },
-    {
-        "id": "e_wu", "name": "吴", "color": "#b58cff", "role": "值班岗",
-        "dutyTarget": 6, "dutyMax": 6, "keyShift": False, "weeklyRest": None,
-        "alternate": False, "shiftCycle": None, "active": True,
-        "note": "怡值班时补早班(规则9)",
-    },
-    {
-        "id": "e_zhou", "name": "周", "color": "#8f7dff", "role": "轮班",
-        "dutyTarget": 0, "dutyMax": 0, "keyShift": False, "weeklyRest": None,
-        "alternate": True, "shiftCycle": None, "preferShift": "early", "active": True,
-        "note": "与怡上一休一(规则4)，倾向多排早班",
-    },
-]
 
 DEFAULT_SETTINGS = {
     "version": 1,
@@ -138,18 +91,13 @@ def save_settings(settings: dict) -> None:
 # 员工
 # --------------------------------------------------------------------------
 def load_employees() -> list[dict]:
+    """员工只来自 config/employees.json；没有配置时返回空列表（由前端新增）。"""
     ensure_dirs()
-    if not EMPLOYEES_FILE.exists():
-        save_employees(copy.deepcopy(DEFAULT_EMPLOYEES))
-    payload = _read_json(EMPLOYEES_FILE, {"version": 1, "employees": DEFAULT_EMPLOYEES})
+    payload = _read_json(EMPLOYEES_FILE, {"version": 1, "employees": []})
     employees = payload.get("employees") if isinstance(payload, dict) else None
-    if not employees:
-        employees = copy.deepcopy(DEFAULT_EMPLOYEES)
-        save_employees(employees)
-    fixed = []
-    for idx, emp in enumerate(employees):
-        fixed.append(_normalize_employee(emp, idx))
-    return fixed
+    if not isinstance(employees, list):
+        employees = []
+    return [_normalize_employee(emp, idx) for idx, emp in enumerate(employees)]
 
 
 def _normalize_employee(emp: dict, idx: int) -> dict:
@@ -254,13 +202,8 @@ def load_month(year: int, month: int, employees: list[dict]) -> dict:
         doc = _read_json(path, None)
         if isinstance(doc, dict):
             return normalize_month(doc, employees)
-    # 首次进入该月份：若配置了播种数据则使用，否则空白
-    doc = blank_month(year, month, employees)
-    seed = seed_month(year, month, employees)
-    if seed is not None:
-        doc = seed
-        save_month(doc)
-    return normalize_month(doc, employees)
+    # 首次进入该月份：直接空白，数据一律来自 data/schedules/
+    return normalize_month(blank_month(year, month, employees), employees)
 
 
 def normalize_month(doc: dict, employees: list[dict]) -> dict:
@@ -334,50 +277,6 @@ def list_months() -> list[dict]:
     return items
 
 
-# --------------------------------------------------------------------------
-# 播种：用户提供的 2026 年 10 月人工排班表
-# --------------------------------------------------------------------------
-SEED_2026_10 = {
-    1: ("琳吴", "陈怡", "徐"), 2: ("陈怡", "琳吴", "吴"), 3: ("怡琳", "陈周", "陈"),
-    4: ("吴琳", "范怡", "怡"), 5: ("范吴", "琳周", "范"), 6: ("陈周", "范吴", "吴"),
-    7: ("琳周", "陈怡", "陈"), 8: ("范徐吴", "琳怡", "怡"), 9: ("徐陈周", "范琳吴", "范"),
-    10: ("吴琳怡", "陈徐", "徐"), 11: ("怡陈", "范琳吴", "吴"), 12: ("范徐周吴", "陈怡", "怡"),
-    13: ("徐陈吴", "范周", "范"), 14: ("吴范周", "陈徐", "陈"), 15: ("陈吴", "范徐", "徐"),
-    16: ("范吴", "陈琳", "吴"), 17: ("陈琳怡", "范徐吴", "范"), 18: ("徐周怡", "陈琳", "陈"),
-    19: ("怡琳", "范徐", "徐"), 20: ("范吴", "陈怡徐", "怡"), 21: ("徐陈周", "范琳吴", "吴"),
-    22: ("怡琳周", "陈徐", "徐"), 23: ("陈吴怡", "范琳", "范"), 24: ("琳怡吴", "陈徐", "陈"),
-    25: ("范吴徐", "琳怡", "怡"), 26: ("徐范周", "琳吴", "吴"), 27: ("陈怡", "范徐", "徐"),
-    28: ("吴琳周", "陈怡", "陈"), 29: ("徐范周", "琳怡", "怡"), 30: ("琳周", "范徐怡", "范"),
-    31: ("怡琳周", "范徐", "徐"),
-}
-
-
-def seed_month(year: int, month: int, employees: list[dict]):
-    """2026-10 首次进入时灌入人工排班表（可被导入覆盖）。"""
-    if (year, month) != (2026, 10):
-        return None
-    by_name = {e["name"]: e["id"] for e in employees}
-    if not {"陈", "范", "琳", "徐", "怡", "吴", "周"} <= set(by_name):
-        return None
-    doc = blank_month(year, month, employees)
-    doc["source"] = "seed:10月排班.xlsx"
-    doc["note"] = "初始数据来自用户提供的《10月排班.xlsx》(2026年10月)。"
-    opener_count = {name: 0 for name in by_name}
-    last_opener = None
-    for day, (morning, evening, duty) in SEED_2026_10.items():
-        m_ids, e_ids, d_ids = _split_names(morning, by_name), _split_names(evening, by_name), _split_names(duty, by_name)
-        # 开门人：从早班成员中轮换产生，避免连续同人
-        candidates = [i for i in m_ids if i]
-        opener = ""
-        if candidates:
-            ranked = sorted(candidates, key=lambda i: (opener_count[_name_of(i, by_name)], i == last_opener))
-            opener = ranked[0]
-            opener_count[_name_of(opener, by_name)] += 1
-            last_opener = opener
-        doc["schedule"][str(day)] = {
-            "morning": m_ids, "evening": e_ids, "duty": d_ids, "opener": opener,
-        }
-    return doc
 
 
 def _name_of(emp_id: str, by_name: dict) -> str:

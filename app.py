@@ -155,18 +155,11 @@ def api_reset():
     employees = model.load_employees()
     year = _int(payload.get("year"), DEFAULT_YEAR)
     month = _int(payload.get("month"), DEFAULT_MONTH)
-    mode = payload.get("mode") or "clear"
     doc = model.load_month(year, month, employees)
-    if mode == "baseline":
-        seed = model.seed_month(year, month, employees)
-        if seed is None:
-            return error("该月份没有可恢复的初始导入数据")
-        seed["availability"] = doc.get("availability") or seed["availability"]
-        seed["extraRules"] = doc.get("extraRules") or []
-        seed["ruleOverrides"] = doc.get("ruleOverrides") or {}
-        doc = seed
-    else:
-        doc["schedule"] = model.blank_schedule(year, month, employees)
+    # 不再内置示例排班：重置 = 清空本月（保留可用日 / 特殊规则 / 规则覆盖）
+    doc["schedule"] = model.blank_schedule(year, month, employees)
+    doc["source"] = "blank"
+    doc["note"] = ""
     doc = model.normalize_month(doc, employees)
     doc = model.save_month(doc)
     return jsonify(build_state(year, month, {"message": "已重置"}))

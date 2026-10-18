@@ -158,6 +158,15 @@ const typeMeta = (type) => extraTypes.value.find((t) => t.type === type) || { na
               </div>
               <div class="rule-desc">{{ r.desc }}<span v-if="Number(r.priority ?? 1) !== 1" class="prio-tag">权重 ×{{ Number(r.priority).toFixed(2) }}</span></div>
               <div class="rule-quant">{{ r.quant }}</div>
+              <label class="rule-action" title="冲突清单里显示的处理建议，可自行修改">
+                <span>处理建议</span>
+                <input
+                  type="text"
+                  :value="r.action || ''"
+                  placeholder="留空则用规则内置建议"
+                  @change="changeBase(r, { action: $event.target.value })"
+                />
+              </label>
               <div v-if="r.paramsSpec.length" class="rule-params">
                 <label v-for="p in r.paramsSpec" :key="p.key">
                   <template v-if="p.type === 'bool'">

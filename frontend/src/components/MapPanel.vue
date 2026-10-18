@@ -114,9 +114,20 @@ function cellClass(emp, day) {
   const g = cellOf(emp.id, day);
   const hasErr = g.v.some((id) => sevMap.value[id] === "error");
   const hasWarn = !hasErr && g.v.some((id) => sevMap.value[id] === "warn");
+  const focus = S.focusCells || [];
+  const inFocus = focus.includes(`${emp.id}:${day}`);
   return [
     "s-" + g.s,
-    { "has-issue": hasErr, "has-warn": hasWarn, "is-selected": S.sel && S.sel.day === day && S.sel.eid === emp.id },
+    {
+      "has-issue": hasErr,
+      "has-warn": hasWarn,
+      "is-selected": S.sel && S.sel.day === day && S.sel.eid === emp.id,
+      // 选中员工：其他行整体变暗（不只是名字）
+      "row-dim": !!S.highlightEmp && S.highlightEmp !== emp.id && !inFocus,
+      // 冲突聚焦：涉及的格子闪烁，其余变暗
+      "is-focus": inFocus,
+      "is-out": focus.length > 0 && !inFocus,
+    },
   ];
 }
 function cellTitle(emp, day) {
@@ -162,6 +173,10 @@ function onHeadClick(day) {
     </div>
 
     <div class="map-body">
+      <div v-if="!employees.length" class="map-empty">
+        <b>还没有员工</b>
+        <span>点右上角「人员」→「新增」，先建好员工和可用日，再排班或生成</span>
+      </div>
       <div ref="scrollRef" class="map-scroll" :class="{ blink: S.blink, 'compact-mode': S.compact }">
         <section v-for="w in weeks" :key="w.index" class="map-block">
           <div class="grid" :style="gridStyle()">

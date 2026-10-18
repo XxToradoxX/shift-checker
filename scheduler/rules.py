@@ -36,6 +36,7 @@ RULE_CATALOG: list[dict] = [
             _p("warnThree", "三人班次也报警", "bool"),
         ],
         "desc": "早班、晚班各安排 2~3 人，以 2 人一班优先。",
+        "action": "调整当天该班次的人数：从空闲多的员工里补人或移出多余的人。",
         "quant": "∀d:min ≤ |早(d)| ≤ max ∧ min ≤ |晚(d)| ≤ max；|早(d)|>prefer 或 |晚(d)|>prefer 记提示。",
     },
     {
@@ -46,6 +47,7 @@ RULE_CATALOG: list[dict] = [
         "params": {},
         "paramsSpec": [],
         "desc": "上早班的人当天不能再安排晚班（上一休一员工除外：他们当天要早晚一起上）。",
+        "action": "把其中一个人改到另一个班次或空班，避免同一天双班。",
         "quant": "∀d:早(d) ∩ 晚(d) = ∅，但 alternate(e)=true 的员工不计入。",
     },
     {
@@ -59,6 +61,7 @@ RULE_CATALOG: list[dict] = [
             _p("max", "每日最多值班人数", min=1, max=6),
         ],
         "desc": "每天必须安排员工值班，默认 1 人。",
+        "action": "当天安排一名员工值班。",
         "quant": "∀d:min ≤ |值(d)| ≤ max。",
     },
     {
@@ -68,7 +71,8 @@ RULE_CATALOG: list[dict] = [
         "enabled": True,
         "params": {"strictRest": False},
         "paramsSpec": [_p("strictRest", "连续休息也判为冲突", "bool")],
-        "desc": "周、怡两人上一休一：上班的那天早班和晚班一起上，第二天全天休息。",
+        "desc": "标记为「上一休一」的员工：上班那天早班和晚班一起上，第二天全天休息。",
+        "action": "按上一休一节奏：上班日早班+晚班都排，次日整体空班。",
         "quant": "上班日:早(e)∧晚(e) 必须同时成立；∀d:work(d) ≠ work(d+1)。",
     },
     {
@@ -78,7 +82,8 @@ RULE_CATALOG: list[dict] = [
         "enabled": True,
         "params": {"tolerance": 0},
         "paramsSpec": [_p("tolerance", "允许偏差(天)", min=0, max=4)],
-        "desc": "陈、范、徐、吴、怡每人每月值班 6 天；超过该员工上限记「超过次数上限」。",
+        "desc": "按员工属性里的「值班目标 / 值班上限」校验：实际值班天数应落在目标附近，且不超过上限。",
+        "action": "把超出次数的值班换给别人，或调整该员工的值班上限。",
         "quant": "∀e∈值班岗:dutyCount(e) ∈ [target-tol, max]，低于 target-tol 记不足，高于 max 记超限。",
     },
     {
@@ -92,6 +97,7 @@ RULE_CATALOG: list[dict] = [
             _p("nextDayRest", "值班次日必须空班", "bool"),
         ],
         "desc": "值班当天需同时安排晚班；值班日的第二天安排休息（空班）。",
+        "action": "值班日务必同时排晚班；值班次日不要安排任何班次。",
         "quant": "∀d,e∈值(d):e∈晚(d)；work(e,d+1)=false。",
     },
     {
@@ -101,7 +107,8 @@ RULE_CATALOG: list[dict] = [
         "enabled": True,
         "params": {"shifts": "both"},
         "paramsSpec": [],
-        "desc": "早班与晚班都必须包含陈、范、琳其中至少一位。",
+        "desc": "早班与晚班都必须至少包含一名标记为「关键岗」的员工。",
+        "action": "在该班次补一名关键岗员工，或把关键岗从另一个班次调过来。",
         "quant": "∀d:早(d) ∩ 关键 = ∅ 或 晚(d) ∩ 关键 = ∅ → 冲突（关键 = {陈,范,琳}）。",
     },
     {
@@ -112,6 +119,7 @@ RULE_CATALOG: list[dict] = [
         "params": {"ignoreDuty": True},
         "paramsSpec": [_p("ignoreDuty", "值班日不参与判定", "bool")],
         "desc": "徐正常一天早班一天晚班，并服从值班安排。",
+        "action": "让该员工早班、晚班交替出现，避免连着上同一个班。",
         "quant": "∀d:若徐(d)、徐(d+1) 均出勤且均非值班，则 shift(d) ≠ shift(d+1)。",
     },
     {
@@ -124,7 +132,8 @@ RULE_CATALOG: list[dict] = [
             _p("triggerName", "触发人姓名", "text"),
             _p("supportName", "补位人姓名", "text"),
         ],
-        "desc": "怡晚班并值班时，早班必须安排吴。",
+        "desc": "当「触发员工」值班时，早班必须安排「支援员工」。（两名员工在规则参数里指定）",
+        "action": "触发员工值班时，把支援员工排进当天早班。",
         "quant": "∀d:怡∈晚(d) ∧ 怡∈值(d) → 吴∈早(d)。",
     },
     {
@@ -134,7 +143,8 @@ RULE_CATALOG: list[dict] = [
         "enabled": True,
         "params": {"tolerance": 1},
         "paramsSpec": [_p("tolerance", "允许偏差(天)", min=0, max=5)],
-        "desc": "按员工属性里的「全月休息天数」校验（琳约 6 天，比关键岗少一半左右）。",
+        "desc": "按员工属性里的「全月休息天数」校验：实际休息天数与该值相差不超过容差。",
+        "action": "增减该员工的上班天数，让休息天数回到目标附近。",
         "quant": "∀e:|rest(e) − monthlyRest(e)| ≤ tolerance，超出记提示。",
     },
     {
@@ -145,6 +155,7 @@ RULE_CATALOG: list[dict] = [
         "params": {},
         "paramsSpec": [],
         "desc": "员工标记为不可用日的日期不得安排任何班次。",
+        "action": "把该员工当天改到不可用日之外，或调整可用日设置。",
         "quant": "∀e,d:d∉avail(e) → work(e,d)=false。",
     },
     {
@@ -158,6 +169,7 @@ RULE_CATALOG: list[dict] = [
             _p("require", "必须指定开门人", "bool"),
         ],
         "desc": "每日 1 名开门人，必须来自当天早班，且不重复同一人连续开门。",
+        "action": "从当天早班里重新指定开门人，避免连续同一个人开门。",
         "quant": "∀d:opener(d)∈早(d) ∧ |{opener(d)}|=1；opener(d) ≠ opener(d-1)（maxRepeat=0 时）。",
     },
     {
@@ -168,6 +180,7 @@ RULE_CATALOG: list[dict] = [
         "params": {"maxConsecutive": 6},
         "paramsSpec": [_p("maxConsecutive", "最多连续上班天数", min=2, max=31)],
         "desc": "连续上班天数不得超过上限（默认关闭，可开启）。",
+        "action": "连续上班超限时，中间插入一天空班。",
         "quant": "∀e:maxRun(e) ≤ maxConsecutive。",
     },
     {
@@ -181,6 +194,7 @@ RULE_CATALOG: list[dict] = [
             _p("hardDays", "连续天数≥此值 → 冲突", min=2, max=10),
         ],
         "desc": "不建议连续两天上早班；连续三天及以上早班直接判为冲突。",
+        "action": "把连续早班中的一天改成晚班或空班。",
         "quant": "run(早,e) ≥ hardDays → 冲突；≥ warnDays → 提示。",
     },
     {
@@ -191,6 +205,7 @@ RULE_CATALOG: list[dict] = [
         "params": {"maxConsecutive": 2},
         "paramsSpec": [_p("maxConsecutive", "最多连续晚班天数", min=1, max=7)],
         "desc": "尽量不要连续上晚班（默认关闭，可按需开启）。",
+        "action": "把连续晚班中的一天改成早班或空班。",
         "quant": "∀e:run(晚,e) ≤ maxConsecutive。",
     },
     {
@@ -201,6 +216,7 @@ RULE_CATALOG: list[dict] = [
         "params": {"tolerance": 1},
         "paramsSpec": [_p("tolerance", "允许偏差(次)", min=0, max=5)],
         "desc": "开门人尽量平均分给早班的人，不要总是同几个人开门。",
+        "action": "把开门次数多的人的开门日，换给开门次数少的人。",
         "quant": "∀e:|open(e) − 平均开门次数| ≤ tolerance。",
     },
     {
@@ -211,6 +227,7 @@ RULE_CATALOG: list[dict] = [
         "params": {"minGap": 3},
         "paramsSpec": [_p("minGap", "两次值班最少间隔(天)", min=2, max=15)],
         "desc": "值班尽量平均分布，避免出现「值班一天、休息一天、又值班」的密集节奏。",
+        "action": "把其中一次值班换到间隔更远的日子。",
         "quant": "∀相邻值班日 d1<d2：d2 − d1 ≥ minGap。",
     },
     {
@@ -221,6 +238,7 @@ RULE_CATALOG: list[dict] = [
         "params": {},
         "paramsSpec": [],
         "desc": "按员工属性里的「早班/晚班 最少~最多 天数」校验（晚班含值班日）。",
+        "action": "在格子上调整该员工的早/晚班次数，或修改上下限。",
         "quant": "∀e:minEarly(e) ≤ |早(e)| ≤ maxEarly(e)；minLate(e) ≤ |晚(e)| ≤ maxLate(e)。",
     },
 ]
@@ -334,6 +352,7 @@ def effective_rules(doc: dict) -> list[dict]:
             "severity": rule["severity"], "params": dict(rule["params"]),
             "paramsSpec": rule["paramsSpec"],
             "priority": _clamp_priority(rule.get("priority", 1.0)),
+            "action": str(rule.get("action") or ""),
         }
         ov = overrides.get(rule["code"])
         if isinstance(ov, dict):
@@ -345,6 +364,8 @@ def effective_rules(doc: dict) -> list[dict]:
                 eff["params"].update(ov["params"])
             if "priority" in ov:
                 eff["priority"] = _clamp_priority(ov["priority"])
+            if isinstance(ov.get("action"), str):
+                eff["action"] = ov["action"]
         out.append(eff)
     return out
 
@@ -441,6 +462,8 @@ class Checker:
             "id": vid, "code": code, "rule": rule.get("name", code),
             "severity": severity, "day": day, "persons": list(persons),
             "title": title, "message": message, "hint": hint, "cells": cells,
+            # 规则级「处理建议」：在规则详情里可编辑，冲突清单优先展示它
+            "action": (rule.get("action") or "").strip() or hint,
         })
         return vid
 
@@ -688,9 +711,12 @@ class Checker:
         for d in range(1, self.days + 1):
             for label, members in (("早班", self.morning[d]), ("晚班", self.evening[d])):
                 if not (members & set(key_ids)):
+                    present = [k for k in key_ids
+                               if (k in self.morning[d]) or (k in self.evening[d]) or (k in self.duty[d])]
+                    cells = [[k, d] for k in (present or key_ids)]
                     self.notify("R7", rule["severity"], d, [], f"{label}缺关键岗",
                                 f"{self.day_label(d)} {label}没有 {names} 中的任何一位",
-                                f"在{label}加入关键岗人员。")
+                                f"在{label}加入关键岗人员。", cells=cells)
 
     def check_shift_runs(self):
         """R14/R15：连续早班/晚班。R14 支持「提示阈值」和「冲突阈值」两级。"""
@@ -749,11 +775,13 @@ class Checker:
             if got < avg - tol:
                 self.notify("R18", rule["severity"], None, [eid], "开门次数偏少",
                             f"{self.name[eid]} 本月只开 {got} 次门，平均应约 {avg:.1f} 次",
-                            "把其他日子的开门人换成该员工。", cells=[])
+                            "把其他日子的开门人换成该员工。",
+                            cells=[[eid, d] for d in range(1, self.days + 1) if self.opener[d] == eid])
             elif got > avg + tol:
                 self.notify("R18", rule["severity"], None, [eid], "开门次数偏多",
                             f"{self.name[eid]} 本月开 {got} 次门，平均约 {avg:.1f} 次",
-                            "把部分日子换给开门次数少的人。", cells=[])
+                            "把部分日子换给开门次数少的人。",
+                            cells=[[eid, d] for d in range(1, self.days + 1) if self.opener[d] == eid])
 
     def check_duty_gap(self):
         """R17：两次值班之间的间隔不要过密。"""
@@ -792,11 +820,15 @@ class Checker:
                 if lo and value < lo:
                     self.notify("R16", rule["severity"], None, [eid], f"{label}次数不足",
                                 f"{self.name[eid]} 本月{label} {value} 天，低于下限 {lo} 天",
-                                "在格子上补排该班次，或调整下限。", cells=[])
+                                "在格子上补排该班次，或调整下限。",
+                                cells=[[eid, d] for d in range(1, self.days + 1)
+                                       if eid in (self.morning[d] if label == "早班" else self.evening[d])])
                 if hi and value > hi:
                     self.notify("R16", rule["severity"], None, [eid], f"{label}次数超限",
                                 f"{self.name[eid]} 本月{label} {value} 天，超过上限 {hi} 天",
-                                "减少该班次，或调整上限。", cells=[])
+                                "减少该班次，或调整上限。",
+                                cells=[[eid, d] for d in range(1, self.days + 1)
+                                       if eid in (self.morning[d] if label == "早班" else self.evening[d])])
 
     def check_shift_cycle(self):
         rule = self.rules["R8"]
@@ -836,7 +868,7 @@ class Checker:
                     self.notify("R9", rule["severity"], d, [trigger], "值班补位缺失",
                                 f"{self.name[trigger]} {self.day_label(d)} 晚班+值班，早班未安排{self.name[support]}",
                                 f"在早班加入{self.name[support]}。",
-                                cells=[[trigger, d]])
+                                cells=[[trigger, d], [support, d]])
 
     def check_rest_quota(self):
         """R10：全月休息天数配额（例如琳全月休 6 天左右）。"""
@@ -861,7 +893,7 @@ class Checker:
                         f"{self.name[eid]} 本月休息 {rest} 天，目标 {target} 天"
                         f"（{'多休' if diff > 0 else '少休'} {abs(diff)} 天）",
                         "在格子上增减休息日，或调整该员工的休息天数目标。",
-                        cells=[])
+                        cells=[[eid, d] for d in sorted(self.worked_days[eid])])
 
     def check_availability(self):
         rule = self.rules["R11"]
