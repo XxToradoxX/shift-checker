@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ app_title }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='dist/app.css') }}">
+</head>
+<body>
+<div id="app"></div>
+<script>
+  window.__APP__ = {
+    defaultYear: {{ default_year }},
+    defaultMonth: {{ default_month }},
+    todayYear: {{ today_year }},
+    todayMonth: {{ today_month }}
+  };
+</script>
+<script type="module" src="{{ url_for('static', filename='dist/app.js') }}"></script>
+</body>
+</html>

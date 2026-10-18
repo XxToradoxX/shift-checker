@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{ app_title }} · 前端未构建</title>
+<style>
+  body { margin: 0; background: #05080c; color: #cfe6f2; font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+         display: grid; place-items: center; height: 100vh; }
+  .box { border: 1px solid #1d4a5f; padding: 28px 34px; background: #08121a; max-width: 560px; line-height: 1.9; }
+  h1 { font-size: 17px; letter-spacing: 1.5px; margin: 0 0 10px; color: #ff8a5c; }
+  code { background: #0d1c26; padding: 2px 6px; border: 1px solid #1d4a5f; color: #9de8ff; }
+  p { font-size: 13px; color: #9fb6c6; margin: 6px 0; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>前端资源未构建</h1>
+    <p>没有找到 <code>static/dist/app.js</code>。请在项目目录执行：</p>
+    <p><code>cd frontend</code> → <code>npm install</code> → <code>npm run build</code></p>
+    <p>然后刷新本页即可。开发时也可以用 <code>npm run dev</code> 打开 Vite 的 5173 端口（已配置 /api 代理）。</p>
+  </div>
+</body>
+</html>
