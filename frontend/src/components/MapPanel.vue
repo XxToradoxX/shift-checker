@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   S,
@@ -38,7 +38,6 @@ function fit() {
   const gap = parseFloat(getComputedStyle(el).rowGap) || 12;
   const avail = el.clientHeight - gap * (bands - 1) - 10;
   let h = Math.floor((avail / bands - HEAD_H) / rows);
-  if (S.compact) h = Math.round(h * 0.82);
   cellH.value = Math.max(15, Math.min(52, h));
   el.style.setProperty("--cell-h", cellH.value + "px");
 }
@@ -48,7 +47,7 @@ onMounted(() => {
 });
 onUnmounted(() => window.removeEventListener("app:resize", fit));
 watch(
-  () => [S.data && S.data.doc.year, S.data && S.data.doc.month, employees.value.length, S.compact],
+  () => [S.data && S.data.doc.year, S.data && S.data.doc.month, employees.value.length],
   () => nextTick(fit)
 );
 
@@ -166,10 +165,6 @@ function onHeadClick(day) {
         <span class="lg"><i class="sw violation"></i>冲突</span>
         <span class="lg"><i class="sw purple"></i>人员</span>
       </div>
-      <div class="map-tools">
-        <button class="mini" :class="{ on: S.blink }" @click="S.blink = !S.blink">闪烁</button>
-        <button class="mini" :class="{ on: S.compact }" @click="S.compact = !S.compact">紧凑</button>
-      </div>
     </div>
 
     <div class="map-body">
@@ -177,7 +172,7 @@ function onHeadClick(day) {
         <b>还没有员工</b>
         <span>点右上角「人员」→「新增」，先建好员工和可用日，再排班或生成</span>
       </div>
-      <div ref="scrollRef" class="map-scroll" :class="{ blink: S.blink, 'compact-mode': S.compact }">
+      <div ref="scrollRef" class="map-scroll">
         <section v-for="w in weeks" :key="w.index" class="map-block">
           <div class="grid" :style="gridStyle()">
             <div class="gcell corner">

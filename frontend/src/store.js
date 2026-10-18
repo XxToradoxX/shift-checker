@@ -34,8 +34,6 @@ export const S = reactive({
   focusStamp: 0,
   focusV: null,
   filter: "all",
-  blink: true,
-  compact: false,
   busy: false,
   iterations: 100000,
   workers: 4,
@@ -206,6 +204,7 @@ export async function undo() {
 /* ------------------------------ 单元格编辑 ------------------------------ */
 export function select(eid, day) {
   S.focusCells = [];
+  S.focusV = null;
   S.sel = { eid, day };
   S.focusV = null;
 }
@@ -499,6 +498,12 @@ export const STATUS_TEXT = {
 
 /* ------------------------------ 冲突定位 ------------------------------ */
 export function locate(v) {
+  // 同一个冲突再点一次 → 取消高亮，恢复原本的排班地图
+  if (S.focusV === v.id && (S.focusCells || []).length) {
+    S.focusV = null;
+    S.focusCells = [];
+    return;
+  }
   S.focusV = v.id;
   const cells = (v.cells || []).filter((c) => c && c[0]);
   let eid = null;
@@ -513,16 +518,11 @@ export function locate(v) {
     eid = emp.id;
   }
   S.sel = { eid, day };
-  // 该冲突涉及的所有格子：这些高亮闪烁，其余变暗
+  // 该冲突涉及的所有格子：这些高亮，其余变暗
   // R7 → 当天所有关键岗；R5 → 该员工全月值班日；R14 → 连续早班那一段 …
   S.focusCells = cells.map((c) => `${c[0]}:${c[1]}`);
-  S.focusStamp += 1;
   nextTick(() => {
     const el = document.querySelector(".gcell.cell.is-selected");
-    if (el) {
-      el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
-      el.classList.add("flash");
-      setTimeout(() => el.classList.remove("flash"), 2000);
-    }
+    if (el) el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   });
 }
