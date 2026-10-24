@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { S, load, undo, generate, save, exportCsv, importFile } from "../store";
+import { openUpdate, S, load, undo, generate, save, exportCsv, importFile } from "../store";
 
 const fileInput = ref(null);
 const baseYear = (window.__APP__ && window.__APP__.defaultYear) || 2026;
@@ -72,6 +72,7 @@ function onFile(e) {
       <button class="btn" :disabled="!S.undo.length" title="撤销 (Ctrl+Z)" @click="undo">
         <i class="ico">↺</i><span>撤销</span>
       </button>
+      <button class="btn" @click="openUpdate"><i class="ico">↻</i><span>更新</span></button>
       <button class="btn" @click="S.modal = 'confirm'"><i class="ico">⨯</i><span>重置</span></button>
       <span class="divider"></span>
       <button class="btn" @click="pickFile"><i class="ico">▲</i><span>导入</span></button>

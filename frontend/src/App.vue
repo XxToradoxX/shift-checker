@@ -10,6 +10,7 @@ import Inspector from "./components/Inspector.vue";
 import RulesModal from "./components/RulesModal.vue";
 import PeopleModal from "./components/PeopleModal.vue";
 import ConfirmModal from "./components/ConfirmModal.vue";
+import UpdateModal from "./components/UpdateModal.vue";
 import Toasts from "./components/Toasts.vue";
 
 function onKey(e) {
@@ -83,7 +84,8 @@ onUnmounted(() => {
     </main>
     <RulesModal v-if="S.modal === 'rules'" />
     <PeopleModal v-if="S.modal === 'people'" />
-    <ConfirmModal v-if="S.modal === 'confirm'" />
+    <UpdateModal v-if="S.upd.open" />
+      <ConfirmModal v-if="S.modal === 'confirm'" />
   </div>
   <div v-else class="boot-screen">
     <div class="boot-inner">

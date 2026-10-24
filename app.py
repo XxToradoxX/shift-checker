@@ -36,7 +36,7 @@ except ImportError:  # pragma: no cover
         print("缺少 Flask 依赖。请执行： pip install -r requirements.txt")
         raise
 
-from scheduler import csvio, generator, model
+from scheduler import csvio, generator, model, updater
 from scheduler import rules as rulebook
 
 APP_TITLE = "员工月排班冲突检查器"
@@ -427,6 +427,42 @@ def api_months():
 @app.route("/api/health")
 def api_health():
     return jsonify({"ok": True, "time": model.now_iso()})
+
+
+# --------------------------------------------------------------------------
+# 在线更新
+# --------------------------------------------------------------------------
+@app.route("/api/update/check")
+def api_update_check():
+    return jsonify(updater.check())
+
+
+@app.route("/api/update/download", methods=["POST"])
+def api_update_download():
+    payload = request.get_json(force=True, silent=True) or {}
+    info = updater.check()
+    if not info.get("hasUpdate") or not info.get("url"):
+        return error(info.get("error") or "当前已是最新版本")
+    return jsonify(updater.download(info["url"], info["latest"],
+                                    info.get("size") or 0, info.get("assetId") or 0))
+
+
+@app.route("/api/update/progress")
+def api_update_progress():
+    return jsonify(updater.progress())
+
+
+@app.route("/api/update/apply", methods=["POST"])
+def api_update_apply():
+    result = updater.apply_update()
+    if not result.get("ok"):
+        return error(result.get("message") or "更新失败")
+    return jsonify(result)
+
+
+@app.route("/api/version")
+def api_version():
+    return jsonify({"version": updater.current_version(), "frozen": updater.is_frozen()})
 
 
 def _int(value, default: int) -> int:

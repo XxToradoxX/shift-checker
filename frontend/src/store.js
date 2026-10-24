@@ -15,6 +15,8 @@ async function request(url, opts = {}) {
   return payload;
 }
 
+const getJSON = (url) => request(url);
+
 const postJSON = (url, body) =>
   request(url, {
     method: "POST",
@@ -32,6 +34,13 @@ export const S = reactive({
   highlightEmp: null,
   focusCells: [],   // 冲突涉及的格子 ["eid:day"]
   focusStamp: 0,
+  upd: {
+    open: false,
+    status: "idle",     // idle | checking | latest | available | downloading | ready | applying | error | offline
+    info: null,
+    progress: { downloaded: 0, total: 0, speed: 0, state: "idle", message: "" },
+    error: "",
+  },
   focusV: null,
   filter: "all",
   busy: false,
@@ -460,6 +469,90 @@ export async function saveExtraRules(list) {
   snapshot();
   S.data.doc.extraRules = list;
   await save({ silent: true });
+}
+
+
+/* ------------------------------ 在线更新 ------------------------------ */
+export function openUpdate() {
+  S.upd.open = true;
+  S.upd.error = "";
+  if (S.upd.status === "idle" || S.upd.status === "error") checkUpdate();
+}
+
+export function closeUpdate() {
+  S.upd.open = false;
+}
+
+export async function checkUpdate() {
+  S.upd.status = "checking";
+  S.upd.error = "";
+  try {
+    const info = await getJSON("/api/update/check");
+    S.upd.info = info;
+    if (info.error) {
+      S.upd.status = "error";
+      S.upd.error = info.error;
+    } else if (!info.hasUpdate) {
+      S.upd.status = "latest";
+    } else {
+      S.upd.status = "available";
+    }
+  } catch (err) {
+    S.upd.status = "error";
+    S.upd.error = escapeHtml(err.message);
+  }
+}
+
+export async function startUpdate() {
+  S.upd.status = "downloading";
+  S.upd.progress = { downloaded: 0, total: 0, speed: 0, state: "downloading", message: "" };
+  try {
+    await postJSON("/api/update/download", {});
+  } catch (err) {
+    S.upd.status = "error";
+    S.upd.error = escapeHtml(err.message);
+  }
+}
+
+export async function pollUpdate() {
+  try {
+    const pr = await getJSON("/api/update/progress");
+    S.upd.progress = pr;
+    if (pr.state === "ready") S.upd.status = "ready";
+    else if (pr.state === "error") {
+      S.upd.status = "error";
+      S.upd.error = pr.message || "下载失败";
+    }
+  } catch (err) {
+    /* 服务重启中，忽略 */
+  }
+}
+
+export async function applyUpdate() {
+  S.upd.status = "applying";
+  try {
+    await postJSON("/api/update/apply", {});
+  } catch (err) {
+    S.upd.status = "error";
+    S.upd.error = escapeHtml(err.message);
+    return;
+  }
+  // 等服务重启
+  const t0 = Date.now();
+  const timer = setInterval(async () => {
+    if (Date.now() - t0 > 90000) {
+      clearInterval(timer);
+      S.upd.status = "offline";
+      return;
+    }
+    try {
+      await getJSON("/api/health");
+      clearInterval(timer);
+      location.reload();
+    } catch (err) {
+      /* 还没起来，继续等 */
+    }
+  }, 1200);
 }
 
 /* ------------------------------ 工具 ------------------------------ */
