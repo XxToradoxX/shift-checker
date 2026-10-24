@@ -40,8 +40,9 @@ from scheduler import csvio, generator, model, updater
 from scheduler import rules as rulebook
 
 APP_TITLE = "员工月排班冲突检查器"
-DEFAULT_YEAR = 2026
-DEFAULT_MONTH = 10
+# 默认打开「当前月份」，不再写死某个月份（避免新装用户看到 2026-10 这类空表）
+DEFAULT_YEAR = _dt.date.today().year
+DEFAULT_MONTH = _dt.date.today().month
 
 app = Flask(
     __name__,
@@ -473,10 +474,9 @@ def _int(value, default: int) -> int:
 
 
 def bootstrap() -> None:
-    model.ensure_dirs()
+    # 只做只读初始化：不建目录、不写任何文件，保持首次运行时目录干净
     model.load_settings()
-    employees = model.load_employees()
-    model.load_month(DEFAULT_YEAR, DEFAULT_MONTH, employees)
+    model.load_employees()
 
 
 def _setup_console() -> None:
