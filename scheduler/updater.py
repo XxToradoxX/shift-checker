@@ -242,6 +242,8 @@ def apply_update() -> dict:
         return {"ok": False, "message": f"解压失败：{type(exc).__name__}: {exc}"}
 
     exe_name = Path(sys.executable).name
+    # 重启时沿用原来的命令行参数（--port / --no-browser 等）
+    extra_args = " ".join(a for a in sys.argv[1:] if a)
     script = BASE_DIR / "apply_update.bat"
     log = UPDATE_DIR / "apply.log"
     bat = f"""@echo off
@@ -255,9 +257,9 @@ if not errorlevel 1 (
   goto wait
 )
 echo [%date% %time%] 开始覆盖文件... >> "{log}"
-robocopy "{staging}" "%~dp0" /E /IS /IT /R:2 /W:1 /NFL /NDL /NJH /NJS >> "{log}" 2>&1
+robocopy "{staging}" "%CD%" /E /IS /IT /R:2 /W:1 /NFL /NDL /NJH /NJS >> "{log}" 2>&1
 echo [%date% %time%] 覆盖完成，启动新版本... >> "{log}"
-start "" "%~dp0{exe_name}"
+start "" "%CD%\\{exe_name}" {extra_args}
 timeout /t 2 /nobreak >nul
 del "%~f0"
 """
