@@ -198,7 +198,7 @@ function onHeadClick(day) {
               <div class="gcell gname" :class="nameClass(emp)" :title="`${emp.name} · 点击编辑人员与可用日`" @click="onNameClick(emp)">
                 <span class="ename">
                   <i class="sw" :style="{ background: emp.color, boxShadow: '0 0 8px ' + emp.color }"></i>{{ emp.name
-                  }}<span v-if="emp.keyShift" class="keymark">◆</span>
+                  }}<span v-if="emp.keyShift" class="keymark">◆</span><span v-if="emp.oddOnly" class="parmark">单</span><span v-if="emp.evenOnly" class="parmark">双</span>
                 </span>
                 <span v-if="showMeta" class="emeta">
                   值 {{ statOf(emp.id).duty }}/{{ statOf(emp.id).target }} · 早{{ statOf(emp.id).early }} 晚{{ statOf(emp.id).late }}

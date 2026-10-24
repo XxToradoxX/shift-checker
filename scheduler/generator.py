@@ -62,6 +62,8 @@ class Ctx:
         self.cap = [_int(e.get("dutyMax")) for e in employees]
         self.key = [bool(e.get("keyShift")) and on("R7") for e in employees]
         self.alternate = [bool(e.get("alternate")) and on("R4") for e in employees]
+        self.odd_only = [bool(e.get("oddOnly")) and on("R19") for e in employees]
+        self.even_only = [bool(e.get("evenOnly")) and on("R20") for e in employees]
         self.cycle = [bool(e.get("shiftCycle")) and on("R8") for e in employees]
         self.monthly_rest = [e.get("monthlyRest") for e in employees]
         self.prefer_shift = [e.get("preferShift") for e in employees]
@@ -221,6 +223,11 @@ class Ctx:
         if (i, d) in self._unavail_cache:
             return False
         if i in self.forced_rest[d]:
+            return False
+        # 单号 / 双号工作：只在对应奇偶的日期上班
+        if self.odd_only[i] and d % 2 == 0:
+            return False
+        if self.even_only[i] and d % 2 == 1:
             return False
         return True
 

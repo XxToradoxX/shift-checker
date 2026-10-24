@@ -109,6 +109,9 @@ def _normalize_employee(emp: dict, idx: int) -> dict:
     else:
         monthly = _as_int(monthly, 0)
     prefer = emp.get("preferShift")
+    # 单号/双号工作互斥：同时勾选时以「单号」为准
+    _odd = bool(emp.get("oddOnly"))
+    _even = bool(emp.get("evenOnly")) and not _odd
     out = {
         "id": str(emp.get("id") or f"e_{idx + 1}"),
         "name": str(emp.get("name") or f"员工{idx + 1}").strip()[:6],
@@ -124,6 +127,8 @@ def _normalize_employee(emp: dict, idx: int) -> dict:
         "minLate": _opt_int(emp.get("minLate")),
         "maxLate": _opt_int(emp.get("maxLate")),
         "alternate": bool(emp.get("alternate")),
+        "oddOnly": _odd,
+        "evenOnly": _even,
         "shiftCycle": emp.get("shiftCycle") or None,
         "active": bool(emp.get("active", True)),
         "note": str(emp.get("note") or ""),

@@ -1046,3 +1046,9 @@ select:hover, select:focus { border-color: var(--ice-dim); box-shadow: 0 0 0 1px
 
 .v-act { display: block; margin-top: 2px; font-size: 10px; color: var(--dim); line-height: 1.45; }
 .v-item.sel .v-act { color: var(--ice-2); }
+
+/* 单号/双号工作标记 */
+.parmark {
+  margin-left: 3px; padding: 0 2px; font-size: 8.5px; line-height: 1.3;
+  color: #6fe3c4; border: 1px solid rgba(111, 227, 196, 0.45); border-radius: 2px;
+}

@@ -10,7 +10,7 @@ const sel = computed(() => {
 const form = reactive({
   name: "", color: "#a875ff", role: "", keyShift: false, dutyTarget: 0, dutyMax: 0,
   monthlyRest: "", preferShift: null, minEarly: "", maxEarly: "", minLate: "", maxLate: "",
-  alternate: false, shiftCycle: false, active: true, note: "",
+  alternate: false, shiftCycle: false, oddOnly: false, evenOnly: false, active: true, note: "",
 });
 
 const isNew = computed(() => form._new === true);
@@ -32,6 +32,8 @@ function fill(e) {
   form.maxLate = e.maxLate == null ? "" : e.maxLate;
   form.alternate = !!e.alternate;
   form.shiftCycle = !!e.shiftCycle;
+  form.oddOnly = !!e.oddOnly;
+  form.evenOnly = !!e.evenOnly;
   form.active = e.active !== false;
   form.note = e.note || "";
 }
@@ -72,6 +74,8 @@ async function submit() {
     maxLate: form.maxLate === "" ? null : Number(form.maxLate),
     preferShift: form.preferShift || null,
     alternate: form.alternate,
+    oddOnly: form.oddOnly,
+    evenOnly: form.evenOnly,
     shiftCycle: form.shiftCycle ? "早晚" : null,
     active: form.active,
     note: form.note.trim(),
@@ -79,6 +83,14 @@ async function submit() {
   if (!data.name) return toast("请填写姓名", "warn");
   if (data.dutyMax < data.dutyTarget) data.dutyMax = data.dutyTarget;
   await saveEmployee(sel.value.id, data, false);
+}
+function setOdd(v) {
+  form.oddOnly = v;
+  if (v) form.evenOnly = false;
+}
+function setEven(v) {
+  form.evenOnly = v;
+  if (v) form.oddOnly = false;
 }
 function remove() {
   if (!sel.value) return;
@@ -173,6 +185,8 @@ function allAvail(on) {
                 <label class="switch"><input v-model="form.alternate" type="checkbox" /><i></i>上一休一(规则4)</label>
                 <label class="switch"><input v-model="form.shiftCycle" type="checkbox" /><i></i>早晚轮换(规则8)</label>
                 <label class="switch"><input v-model="form.active" type="checkbox" /><i></i>参与排班</label>
+                <label class="switch"><input type="checkbox" :checked="form.oddOnly" @change="setOdd($event.target.checked)" /><i></i>单号工作(规则19)</label>
+                <label class="switch"><input type="checkbox" :checked="form.evenOnly" @change="setEven($event.target.checked)" /><i></i>双号工作(规则20)</label>
               </div>
               <div class="form-sep"></div>
               <div class="f-row" style="margin-bottom: 2px">

@@ -66,7 +66,7 @@ RULE_CATALOG: list[dict] = [
     },
     {
         "code": "R4",
-        "name": "周/怡上一休一",
+        "name": "上一休一",
         "severity": SEV_ERROR,
         "enabled": True,
         "params": {"strictRest": False},
@@ -109,22 +109,22 @@ RULE_CATALOG: list[dict] = [
         "paramsSpec": [],
         "desc": "早班与晚班都必须至少包含一名标记为「关键岗」的员工。",
         "action": "在该班次补一名关键岗员工，或把关键岗从另一个班次调过来。",
-        "quant": "∀d:早(d) ∩ 关键 = ∅ 或 晚(d) ∩ 关键 = ∅ → 冲突（关键 = {陈,范,琳}）。",
+        "quant": "∀d:早(d) ∩ 关键 = ∅ 或 晚(d) ∩ 关键 = ∅ → 冲突（关键 = 标记为「关键岗」的员工集合）。",
     },
     {
         "code": "R8",
-        "name": "徐早晚轮换",
+        "name": "早晚轮换",
         "severity": SEV_WARN,
         "enabled": True,
         "params": {"ignoreDuty": True},
         "paramsSpec": [_p("ignoreDuty", "值班日不参与判定", "bool")],
-        "desc": "徐正常一天早班一天晚班，并服从值班安排。",
+        "desc": "标记为「早晚轮换」的员工：上班时早班、晚班交替，值班日不参与判定。",
         "action": "让该员工早班、晚班交替出现，避免连着上同一个班。",
-        "quant": "∀d:若徐(d)、徐(d+1) 均出勤且均非值班，则 shift(d) ≠ shift(d+1)。",
+        "quant": "∀d:若 e(d)、e(d+1) 均出勤且均非值班，则 shift(d) ≠ shift(d+1)。",
     },
     {
         "code": "R9",
-        "name": "怡值班补吴",
+        "name": "值班补位",
         "severity": SEV_ERROR,
         "enabled": True,
         "params": {"triggerName": "怡", "supportName": "吴"},
@@ -134,7 +134,7 @@ RULE_CATALOG: list[dict] = [
         ],
         "desc": "当「触发员工」值班时，早班必须安排「支援员工」。（两名员工在规则参数里指定）",
         "action": "触发员工值班时，把支援员工排进当天早班。",
-        "quant": "∀d:怡∈晚(d) ∧ 怡∈值(d) → 吴∈早(d)。",
+        "quant": "∀d:触发员工∈晚(d) ∧ ∈值(d) → 支援员工∈早(d)。",
     },
     {
         "code": "R10",
@@ -240,6 +240,28 @@ RULE_CATALOG: list[dict] = [
         "desc": "按员工属性里的「早班/晚班 最少~最多 天数」校验（晚班含值班日）。",
         "action": "在格子上调整该员工的早/晚班次数，或修改上下限。",
         "quant": "∀e:minEarly(e) ≤ |早(e)| ≤ maxEarly(e)；minLate(e) ≤ |晚(e)| ≤ maxLate(e)。",
+    },
+    {
+        "code": "R19",
+        "name": "仅在单号工作",
+        "severity": SEV_ERROR,
+        "enabled": True,
+        "params": {},
+        "paramsSpec": [],
+        "desc": "标记为「单号工作」的员工，只允许在 1、3、5… 等单数日期上班；双数日期必须休息。",
+        "action": "把这些天改到单数日期，或取消该员工的「单号工作」标记。",
+        "quant": "∀e:oddOnly(e) ⇒ 双数日 e 不得出现于早/晚/值。",
+    },
+    {
+        "code": "R20",
+        "name": "仅在双号工作",
+        "severity": SEV_ERROR,
+        "enabled": True,
+        "params": {},
+        "paramsSpec": [],
+        "desc": "标记为「双号工作」的员工，只允许在 2、4、6… 等双数日期上班；单数日期必须休息。",
+        "action": "把这些天改到双数日期，或取消该员工的「双号工作」标记。",
+        "quant": "∀e:evenOnly(e) ⇒ 单数日 e 不得出现于早/晚/值。",
     },
 ]
 
@@ -518,6 +540,7 @@ class Checker:
             self.check_yi_support()
             self.check_rest_quota()
             self.check_availability()
+            self.check_odd_even()
             self.check_opener()
             self.check_consecutive()
             self.check_extra_rules()
@@ -908,6 +931,32 @@ class Checker:
                                 f"{self.name[eid]} {self.day_label(d)} 为{kind}，仍被安排"
                                 f"{self.shift_kind(eid, d)}",
                                 "移出该班次或调整可用日。",
+                                cells=[[eid, d]])
+
+    def check_odd_even(self):
+        """R19/R20：单号/双号工作。"""
+        for emp in self.employees:
+            if not emp.get("active", True):
+                continue
+            eid = emp["id"]
+            odd = bool(emp.get("oddOnly"))
+            even = bool(emp.get("evenOnly"))
+            if not (odd or even):
+                continue
+            code = "R19" if odd else "R20"
+            rule = self.rules[code]
+            if not rule["enabled"]:
+                continue
+            label = "单号工作" if odd else "双号工作"
+            for d in range(1, self.days + 1):
+                disallowed = (odd and d % 2 == 0) or (even and d % 2 == 1)
+                if not disallowed:
+                    continue
+                if eid in self.morning[d] or eid in self.evening[d] or eid in self.duty[d]:
+                    self.notify(code, rule["severity"], d, [eid], f"违反{label}",
+                                f"{self.name[eid]} 标记为「{label}」，但 {self.day_label(d)} "
+                                f"安排了{self.shift_kind(eid, d) or '班次'}",
+                                f"把这一天改到{'单' if odd else '双'}数日期，或取消「{label}」标记。",
                                 cells=[[eid, d]])
 
     def check_opener(self):
