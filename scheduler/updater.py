@@ -110,8 +110,8 @@ def check() -> dict:
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             result["error"] = (
-                "无法访问 Release（404）。仓库是私有的，需要在 config/settings.json 里填 "
-                "update.token（GitHub Token，只需 Contents:Read 权限）。"
+                "无法访问 Release（404）：请检查仓库名与 Release 是否存在，或网络是否可用。"
+                "若仓库是私有的，需要在 config/settings.json 的 update.token 填入 GitHub Token。"
             )
         elif exc.code in (401, 403):
             result["error"] = f"GitHub 拒绝访问（{exc.code}），请检查 update.token 是否有效。"
