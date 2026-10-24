@@ -9,6 +9,25 @@
 
 ---
 
+## 在线更新（exe 版）
+
+顶栏 **「更新」** 会读取 GitHub 上最新的 Release：
+
+* 有新版本 → 显示版本号、包大小、更新说明；点「立即更新」开始下载，界面实时显示
+  进度条、已下载/总大小、以及 3 秒滑动窗口的**下载速度**；
+* 下载完成 → 「立即安装并重启」：程序会把安装包解压到 `data/update/staging`，
+  写一个 `apply_update.bat`，退出后由脚本用 robocopy **覆盖程序文件**并重新启动；
+* **只替换程序文件，`config/` 与 `data/` 原样保留**；重启时沿用原来的命令行参数
+  （`--port`、`--no-browser` 等）。
+
+仓库是公开的，所以不需要任何 token。若改回私有仓库，在 `config/settings.json` 里加：
+
+```json
+"update": { "repo": "XxToradoxX/shift-checker", "asset": "ShiftChecker.zip", "token": "<GitHub Token>" }
+```
+
+更新日志写在 `data/update/apply.log`，出问题时先看它。
+
 ## 打包成免安装 exe（给没有 Python 的电脑用）
 
 ```bash
