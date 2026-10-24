@@ -71,13 +71,14 @@ DEFAULT_SETTINGS = {
 
 
 def load_settings() -> dict:
-    """只读：没有配置文件就返回默认值，不落盘（首次启动保持目录干净）。"""
+    ensure_dirs()
     data = _read_json(SETTINGS_FILE, DEFAULT_SETTINGS)
     merged = copy.deepcopy(DEFAULT_SETTINGS)
     if isinstance(data, dict):
         merged.update(data)
     if not merged.get("createdAt"):
         merged["createdAt"] = now_iso()
+        _write_json(SETTINGS_FILE, merged)
     return merged
 
 
@@ -91,6 +92,7 @@ def save_settings(settings: dict) -> None:
 # --------------------------------------------------------------------------
 def load_employees() -> list[dict]:
     """员工只来自 config/employees.json；没有配置时返回空列表（由前端新增）。"""
+    ensure_dirs()
     payload = _read_json(EMPLOYEES_FILE, {"version": 1, "employees": []})
     employees = payload.get("employees") if isinstance(payload, dict) else None
     if not isinstance(employees, list):
@@ -199,6 +201,7 @@ def blank_month(year: int, month: int, employees: list[dict]) -> dict:
 
 
 def load_month(year: int, month: int, employees: list[dict]) -> dict:
+    ensure_dirs()
     path = month_path(year, month)
     if path.exists():
         doc = _read_json(path, None)
@@ -265,6 +268,7 @@ def save_month(doc: dict) -> dict:
 
 
 def list_months() -> list[dict]:
+    ensure_dirs()
     items = []
     for path in sorted(SCHEDULE_DIR.glob("*.json")):
         stem = path.stem
@@ -335,6 +339,7 @@ def _tokenize(text: str) -> list[str]:
 
 
 def meta() -> dict:
+    ensure_dirs()
     return _read_json(META_FILE, {"version": 1})
 
 
