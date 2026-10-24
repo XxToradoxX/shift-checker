@@ -18,7 +18,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-CURRENT_VERSION = "1.0.4"
+CURRENT_VERSION = "1.0.3"
 USER_AGENT = "ShiftChecker-Updater"
 
 _state: dict = {
