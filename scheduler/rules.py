@@ -1123,30 +1123,52 @@ class Checker:
     def weekday_name(self, day: int) -> str:
         return "一二三四五六日"[_dt.date(self.year, self.month, day).weekday()]
 
-    def cell_status(self, eid: str, day: int) -> str:
+    def shift_days(self, eid: str, kind: str) -> list[int]:
+        """某员工上某种班（early / late）的所有日期，按日期升序"""
+        bag = self.morning if kind == "early" else self.evening
+        return [d for d in range(1, self.days + 1) if eid in bag[d]]
+
+    def _over_quota(self, eid: str, day: int, kind: str, cap: int) -> bool:
+        """按日期顺序排，第 cap+1 次及以后算「超次」（只标超出的部分）"""
+        if not cap:
+            return False
+        stamped = self.duty_days(eid) if kind == "duty" else self.shift_days(eid, kind)
+        if day not in stamped:
+            return False
+        return (stamped.index(day) + 1) > cap
+
+    def cell_state(self, eid: str, day: int) -> tuple:
+        """返回 (显示状态, 真实班次)；显示状态为 over 表示该项次数超出上限"""
         emp = self.by_id[eid]
         avail = self.available(eid, day)
         worked = self.works(eid, day)
         if not avail and worked:
-            return "conflict"
+            return ("conflict", "conflict")
         if not avail:
-            return "unavailable"
+            return ("unavailable", "unavailable")
         both = (eid in self.morning[day]) and (eid in self.evening[day])
         if eid in self.duty[day]:
-            cap = emp.get("dutyMax") or 0
-            if self.duty_count.get(eid, 0) > cap:
-                stamped = self.duty_days(eid)
-                idx = (stamped.index(day) + 1) if day in stamped else 99
-                if idx > cap:
-                    return "over"
-            return "duty"
+            if self._over_quota(eid, day, "duty", _to_int(emp.get("dutyMax"))):
+                return ("over", "duty")
+            return ("duty", "duty")
         if both:
-            return "both"
+            return ("both", "both")
         if eid in self.morning[day]:
-            return "early"
+            if self._over_quota(eid, day, "early", _to_int(emp.get("maxEarly"))):
+                return ("over", "early")
+            return ("early", "early")
         if eid in self.evening[day]:
-            return "late"
-        return "off"
+            if self._over_quota(eid, day, "late", _to_int(emp.get("maxLate"))):
+                return ("over", "late")
+            return ("late", "late")
+        return ("off", "off")
+
+    def cell_shift(self, eid: str, day: int) -> str:
+        """格子的真实班次（忽略「超次」标记），供前端同时显示班次与超次提示"""
+        return self.cell_state(eid, day)[1]
+
+    def cell_status(self, eid: str, day: int) -> str:
+        return self.cell_state(eid, day)[0]
 
     # -- 结果 -------------------------------------------------------------
     def result(self, empty: bool) -> dict:
@@ -1159,8 +1181,11 @@ class Checker:
             eid = emp["id"]
             row = {}
             for d in range(1, self.days + 1):
+                st, base = self.cell_state(eid, d)
                 row[str(d)] = {
-                    "s": self.cell_status(eid, d),
+                    "s": st,
+                    "shift": base,
+                    "over": st == "over",
                     "v": cells_viol.get(eid, {}).get(str(d), []),
                     "duty": eid in self.duty[d],
                     "opener": self.opener[d] == eid,

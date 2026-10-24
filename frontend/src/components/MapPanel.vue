@@ -54,7 +54,11 @@ watch(
 /* ------------------------------ 数据取值 ------------------------------ */
 function cellOf(eid, day) {
   const row = check.value.grid[eid] || {};
-  return row[String(day)] || { s: "off", v: [], duty: false, opener: false };
+  return row[String(day)] || { s: "off", shift: "off", over: false, v: [], duty: false, opener: false };
+}
+// 「超次」= 值班次数超上限，格子里仍要显示原本的班次（值班）
+function glyphOf(g) {
+  return STATUS_GLYPH[g.over ? g.shift : g.s] || "";
 }
 function statOf(eid) {
   return statsById.value[eid] || { duty: 0, target: 0, early: 0, late: 0 };
@@ -132,7 +136,10 @@ function cellClass(emp, day) {
 function cellTitle(emp, day) {
   const g = cellOf(emp.id, day);
   const w = dayRow(day).weekday;
-  return `${S.data.doc.month}月${day}日 周${w} · ${emp.name} · ${STATUS_TEXT[g.s] || g.s}` +
+  const st = g.over
+    ? `${STATUS_GLYPH[g.shift] || ""}-超次（超出次数上限）`
+    : STATUS_TEXT[g.s] || g.s;
+  return `${S.data.doc.month}月${day}日 周${w} · ${emp.name} · ${st}` +
     (g.opener ? " · 开门人" : "") + (g.duty ? " · 当班值班" : "");
 }
 
@@ -213,7 +220,7 @@ function onHeadClick(day) {
                 @click="onCellClick(emp, d)"
               >
                 <template v-if="d">
-                  <span class="glyph">{{ STATUS_GLYPH[cellOf(emp.id, d).s] || "" }}</span>
+                  <span class="glyph">{{ glyphOf(cellOf(emp.id, d)) }}<em v-if="cellOf(emp.id, d).over" class="ovtag">-超次</em></span>
                   <span v-if="cellOf(emp.id, d).opener" class="mark op">门</span>
                 </template>
               </div>

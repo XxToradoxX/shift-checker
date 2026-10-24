@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { S, check, doc, employees, statsById, setStatus, toggleShift, setOpener, autoOpener, empName, STATUS_TEXT } from "../store";
+import { S, check, doc, employees, statsById, setStatus, toggleShift, setOpener, autoOpener, empName, STATUS_TEXT, STATUS_GLYPH } from "../store";
 
 const d = computed(() => doc.value);
 const day = computed(() => (S.sel ? S.sel.day : null));
@@ -13,6 +13,18 @@ const grid = computed(() => {
 });
 const emp = computed(() => (eid.value ? employees.value.find((e) => e.id === eid.value) : null));
 const st = computed(() => (eid.value ? statsById.value[eid.value] || {} : {}));
+const statusText = computed(() => {
+  const g = grid.value;
+  if (!g) return "";
+  if (g.over) return `${STATUS_GLYPH[g.shift] || ""}-超次（超出次数上限）`;
+  return STATUS_TEXT[g.s] || g.s;
+});
+// 超次时按钮要识别「真实班次」，否则早/晚班按钮不会高亮
+function isCur(kind) {
+  const g = grid.value;
+  if (!g) return false;
+  return g.s === kind || (g.over && g.shift === kind);
+}
 const vios = computed(() => {
   if (!day.value) return [];
   return check.value.violations.filter(
@@ -56,14 +68,14 @@ function disabled(empId) {
 
         <template v-if="emp">
           <div class="ins-sub">
-            {{ emp.name }} · 当前状态：{{ STATUS_TEXT[grid.s] || grid.s }}<span v-if="emp.keyShift"> · 关键岗</span><span v-if="emp.alternate"> · 上一休一（上班日早晚都上）</span>
+            {{ emp.name }} · 当前状态：{{ statusText }}<span v-if="emp.keyShift"> · 关键岗</span><span v-if="emp.alternate"> · 上一休一（上班日早晚都上）</span>
           </div>
           <div class="ins-actions">
-            <button :class="{ cur: grid.s === 'early' }" @click="setStatus(eid, day, 'early')">早班</button>
-            <button :class="{ cur: grid.s === 'late' }" @click="setStatus(eid, day, 'late')">晚班</button>
-            <button v-if="emp.alternate" :class="{ cur: grid.s === 'both' }" @click="setStatus(eid, day, 'both')">全天</button>
-            <button :class="{ cur: grid.s === 'duty' || grid.s === 'over' }" @click="setStatus(eid, day, 'duty')">值班</button>
-            <button :class="{ cur: grid.s === 'off' }" @click="setStatus(eid, day, 'off')">空班</button>
+            <button :class="{ cur: isCur('early') }" @click="setStatus(eid, day, 'early')">早班</button>
+            <button :class="{ cur: isCur('late') }" @click="setStatus(eid, day, 'late')">晚班</button>
+            <button v-if="emp.alternate" :class="{ cur: isCur('both') }" @click="setStatus(eid, day, 'both')">全天</button>
+            <button :class="{ cur: isCur('duty') }" @click="setStatus(eid, day, 'duty')">值班</button>
+            <button :class="{ cur: isCur('off') }" @click="setStatus(eid, day, 'off')">空班</button>
             <button :class="{ cur: grid.s === 'unavailable' }" @click="setStatus(eid, day, 'unavailable')">不可用日</button>
             <button @click="setStatus(eid, day, 'clear')">移除</button>
           </div>

@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['app.py'],
-    pathex=['D:/Data/DeepSeekWork/WorkD', 'D:/Data/DeepSeekWork/WorkD/vendor'],
+    pathex=['.', 'vendor'],
     binaries=[],
     datas=[('templates', 'templates'), ('static', 'static')],
     hiddenimports=[],

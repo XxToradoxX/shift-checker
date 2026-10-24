@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    员工月排班冲突检查器 —— 控制台排班地图
    深黑背景 / 冰蓝网格 / 白字 / 橙红冲突 / 青绿可用 / 紫色人员
    ============================================================ */
@@ -271,7 +271,7 @@ select:hover, select:focus { border-color: var(--ice-dim); box-shadow: 0 0 0 1px
 .sw.early { background: linear-gradient(180deg, #1de5a2, #0b8a63); }
 .sw.late { background: linear-gradient(180deg, #6f9bff, #2f56b8); }
 .sw.duty { background: linear-gradient(180deg, #ffcf5c, #c98a0c); box-shadow: inset 0 0 0 1px #ffeebb; }
-.sw.off { background: #0c1720; }
+.sw.off { background: linear-gradient(180deg, #6084a0, #3f6b8c); }
 .sw.unavail { background: repeating-linear-gradient(45deg, #5a3320 0 3px, #1a0e08 3px 6px); }
 .sw.over { background: linear-gradient(180deg, #ff6a44, #a12c12); }
 .sw.violation { background: #2a0e08; box-shadow: inset 0 0 0 1px #ff5a33, 0 0 8px rgba(255, 90, 51, 0.8); }
@@ -405,9 +405,9 @@ select:hover, select:focus { border-color: var(--ice-dim); box-shadow: 0 0 0 1px
 }
 .gcell.s-duty .glyph { text-shadow: 0 0 10px rgba(255, 182, 46, 0.85); }
 .gcell.s-off {
-  --accent: transparent;
-  background: rgba(255, 255, 255, 0.015);
-  color: #6b8095; font-weight: 500; letter-spacing: 0.5px;
+  --accent: #3f6b8c;
+  background: linear-gradient(180deg, rgba(96, 132, 168, 0.30), rgba(96, 132, 168, 0.13));
+  color: #93aabb; font-weight: 500; letter-spacing: 0.5px;
 }
 .gcell.s-unavailable {
   --accent: #ff8a3d;
@@ -425,7 +425,12 @@ select:hover, select:focus { border-color: var(--ice-dim); box-shadow: 0 0 0 1px
   color: #ffd6c9;
 }
 
-.gcell .glyph { position: relative; z-index: 1; }
+.gcell .glyph { position: relative; z-index: 1; white-space: nowrap; }
+/* 「超次」后缀：格子照常显示班次，后面紧跟「-超次」（如 早班-超次） */
+.gcell .ovtag {
+  font-style: normal; font-size: 0.82em; font-weight: 700; letter-spacing: 0;
+  margin-left: 1px; color: #ff9d84; text-shadow: 0 0 8px rgba(255, 90, 51, 0.75);
+}
 .gcell .mark { position: absolute; font-size: 8px; line-height: 1; pointer-events: none; }
 .gcell .mark.op {
   right: 2px; top: 50%; transform: translateY(-50%);
@@ -637,7 +642,7 @@ select:hover, select:focus { border-color: var(--ice-dim); box-shadow: 0 0 0 1px
 .cand-table td .tag { font-family: var(--mono); font-size: 8.5px; padding: 0 4px; border-radius: 2px; }
 .tag.ok { color: var(--teal); background: rgba(34, 230, 164, 0.10); }
 .tag.no { color: var(--orange); background: rgba(255, 90, 51, 0.10); }
-.tag.off { color: var(--dim); background: rgba(255, 255, 255, 0.04); }
+.tag.off { color: #8fa6b9; background: rgba(78, 116, 148, 0.22); }
 .cand-btn {
   width: 22px; height: 17px; margin: 0 1px; font-size: 10px; font-family: var(--mono);
   background: rgba(10, 22, 30, 0.9); color: var(--muted); border: 1px solid var(--line);
